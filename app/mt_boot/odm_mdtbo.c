@@ -347,7 +347,7 @@ char *load_overlay_dtbo(char *part_name, unsigned int *size, uint64_t recovery_d
 		}
 	}
 	else {
-		dprintf(CRITICAL, "assert: no dtbo found!\n");
+		dprintf(INFO, "no dtbo found!\n");
 	}
 
 	return NULL;
