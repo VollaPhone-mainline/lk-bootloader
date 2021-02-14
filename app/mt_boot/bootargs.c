@@ -93,7 +93,7 @@ void bootargs_init(void *fdt)
 	offset = fdt_path_offset(fdt, "/chosen");
 	fdt_bootargs = fdt_getprop(fdt, offset,
 			"bootargs", &len);
-	assert(fdt_bootargs);
+	if(!fdt_bootargs){
 	cmdline_tail += snprintf(cmdline_tail, CMDLINE_LEN, "%s", (char *)fdt_bootargs);
 	/*
 	 * According to DeviceTreeOverlayGuide.pdf, bootloader should
@@ -113,6 +113,7 @@ exit:
 	if (temp_ptr)
 		free(temp_ptr);
 	exit_critical_section();
+}
 #else
 	UNUSED(fdt);
 #endif /* DEVICE_TREE_SUPPORT */
