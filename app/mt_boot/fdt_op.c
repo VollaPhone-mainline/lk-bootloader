@@ -61,7 +61,7 @@ DTBO_SRC g_dtbo_load_src = DTBO_FROM_STANDALONE;
 extern u32 g_64bit_dtb_size;
 extern int g_is_64bit_kernel;
 extern char *p_AB_suffix;
-
+bool no_overlay = false;
 
 #define DTBO_PART_NEW_A_NAME "dtbo_a"
 
@@ -167,8 +167,8 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	//       odm dtb.
 	char *overlay_buf = load_overlay_dtbo(part_name, &overlay_len, (uint64_t)recovery_dtbo_offset);
 	if ((overlay_buf == NULL) || (overlay_len == 0)) {
-		pal_log_err("load overlay dtbo failed !\n");
-		return FALSE;
+		pal_log_err("No dtbo was found, booting without it !\n");
+		no_overlay=true;
 	}
 
 	struct fdt_header *fdth = (struct fdt_header *)g_fdt;
@@ -177,13 +177,17 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	int ret = fdt_open_into(g_fdt, g_fdt, size);
 	if (ret) {
 		pal_log_err("fdt_open_into failed \n");
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		return FALSE;
 	}
 	ret = fdt_check_header(g_fdt);
 	if (ret) {
 		pal_log_err("fdt_check_header check failed !\n");
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		return FALSE;
 	}
 
@@ -192,7 +196,9 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	struct fdt_header *blob = ufdt_install_blob(base_buf, blob_len);
 	if (!blob) {
 		pal_log_err("ufdt_install_blob() failed!\n");
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		return FALSE;
 	}
 	pal_log_info("blob_len: 0x%x, overlay_len: 0x%x\n", blob_len, overlay_len);
@@ -201,22 +207,31 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	PROFILING_START("Overlay");
 	// Note: A buffer is allocated in ufdt_apply_overlay() to store the merge
 	//       device tree.
-	/*merged_fdt = ufdt_apply_overlay(blob, blob_len, overlay_buf, overlay_len);
+	if(!no_overlay){
+		merged_fdt = ufdt_apply_overlay(blob, blob_len, overlay_buf, overlay_len);
+	}
+	else{
+		memcpy(merged_fdt, blob, blob_len); 
+	}
 	if (!merged_fdt) {
 		pal_log_err("ufdt_apply_overlay() failed!\n");
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		assert(0);
 		return FALSE;
-	}*/
+	}
 	PROFILING_END();
 
 	// Compact the merged device tree so that the size of the device tree can
 	// be known.
-	/*ret = fdt_pack(merged_fdt);
+	ret = fdt_pack(merged_fdt);
 	if (ret) {
 		pal_log_err("fdt_pack(merged_fdt) failed !\n");
 		free(merged_fdt);
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		return FALSE;
 	}
 
@@ -226,9 +241,11 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	if (merged_size > DTB_MAX_SIZE) {
 		pal_log_err("Error: merged size %d > DTB_MAX_SIZE!\n", merged_size);
 		free(merged_fdt);
-		free(overlay_buf);
+		if(!no_overlay){
+			free(overlay_buf);
+		}
 		return FALSE;
-	}*/
+	}
 
 	// The memory pointed to by "g_fdt" is the location that the Linux kernel
 	// expects to find the device tree, and it is at least a few mega-bytes
@@ -239,8 +256,10 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 	// be inserted into the device tree.
 	((struct fdt_header *)g_fdt)->totalsize = cpu_to_fdt32(DTB_MAX_SIZE);
 
-	//free(merged_fdt);
-	//free(overlay_buf);
+	free(merged_fdt);
+	if(!no_overlay){
+		free(overlay_buf);
+	}
 
 	return TRUE;
 }
