@@ -217,9 +217,9 @@ bool dtb_overlay(void *fdt, int size, uint64_t recovery_dtbo_offset)
 		pal_log_err("ufdt_apply_overlay() failed!\n");
 		if(!no_overlay){
 			free(overlay_buf);
+			assert(0);
+			return FALSE;
 		}
-		assert(0);
-		return FALSE;
 	}
 	PROFILING_END();
 
